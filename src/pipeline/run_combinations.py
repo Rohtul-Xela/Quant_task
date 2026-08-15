@@ -1,7 +1,7 @@
 """
 Phase 3 — strategy combinations.
 
-Three pairs only (SMA+RSI, SMA+Donchian, RSI+Donchian), each using the
+Three pairs (SMA+RSI, SMA+Donchian, RSI+Donchian), each using the
 Phase 1 shortlist's top long_only parameters for that family — no new
 parameter search. Each pair is combined three ways (AND / OR /
 weighted_vote, see src/walkforward/combos.py for the exact rules) and
@@ -15,6 +15,14 @@ weighted_vote weights 0.6 toward the first-named leg in each pair
 stronger family in the Phase 1 in-sample sweep (both SMA and RSI
 comfortably out-ranked Donchian; SMA is named first in SMA+RSI as a
 coin-flip between two similarly strong legs).
+
+Two regime-filter pairs, in addition to the AND/OR/weighted_vote grid
+above: SMA gated by an ADX trending-market filter (classic pairing —
+trend-following should only fire during a confirmed trend), and RSI
+mean-reversion gated by a low-volatility-regime filter (mean reversion
+classically works better in calm markets). These use a base trading
+signal + a regime gate (not two trading legs), so they are combined
+once each rather than crossed with METHODS.
 """
 
 from __future__ import annotations
@@ -35,7 +43,11 @@ from src.backtest.backtest import (  # noqa: E402
     build_next_day_returns,
     load_yahoo_prices,
 )
-from src.strategy.strategies import generate_strategy_signal  # noqa: E402
+from src.strategy.strategies import (  # noqa: E402
+    adx_trend_regime_signal,
+    generate_strategy_signal,
+    low_volatility_regime_signal,
+)
 from src.walkforward.combos import combine_signals  # noqa: E402
 from src.walkforward.harness import run_fixed_signal_walk_forward  # noqa: E402
 from src.walkforward.windows import generate_windows  # noqa: E402
@@ -72,6 +84,21 @@ LEGS = {
 
 PAIRS = [("sma", "rsi"), ("sma", "donchian"), ("rsi", "donchian")]
 METHODS = ["and", "or", "weighted_vote"]
+
+REGIME_PAIRS = [
+    {
+        "combo_name": "sma_adxtrend",
+        "base_leg": "sma",
+        "gate_function": adx_trend_regime_signal,
+        "gate_name": "adx_trend_regime",
+    },
+    {
+        "combo_name": "rsi_lowvol",
+        "base_leg": "rsi",
+        "gate_function": low_volatility_regime_signal,
+        "gate_name": "low_volatility_regime",
+    },
+]
 
 
 def print_section(title: str) -> None:
@@ -112,6 +139,12 @@ def main() -> None:
             mode=leg["mode"],
         )
         print(f"  {leg_key}: {leg['strategy_name']} {leg['parameters']}")
+
+    print("Precomputing regime gates...")
+    gate_signals = {}
+    for regime in REGIME_PAIRS:
+        gate_signals[regime["gate_name"]] = regime["gate_function"](df)
+        print(f"  {regime['gate_name']}")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     EQUITY_DIR.mkdir(parents=True, exist_ok=True)
@@ -172,6 +205,60 @@ def main() -> None:
                 f"Net return: {metrics['net_return']:.4f}   "
                 f"Max DD: {metrics['max_drawdown']:.4f}"
             )
+
+    for regime in REGIME_PAIRS:
+
+        base_leg_key = regime["base_leg"]
+        line_id = f"combo__{regime['combo_name']}__regime_filter"
+        print_section(f"COMBO: {line_id}")
+
+        combined = combine_signals(
+            leg_signals[base_leg_key],
+            gate_signals[regime["gate_name"]],
+            method="regime_filter",
+        )
+
+        result = run_fixed_signal_walk_forward(
+            line_id=line_id,
+            signal_df=combined,
+            windows=windows,
+            yahoo_prices=yahoo_prices,
+            yahoo_returns=yahoo_returns,
+            cost_bps=COST_BPS,
+        )
+
+        result.stitched_daily.to_parquet(
+            EQUITY_DIR / f"{line_id}.parquet", index=False
+        )
+
+        if result.stitched_signal is not None:
+            result.stitched_signal[
+                ["date", "source_ticker", "yahoo_ticker", "signal"]
+            ].to_parquet(EQUITY_DIR / f"{line_id}__signal.parquet", index=False)
+
+        metrics = dict(result.stitched_metrics)
+
+        new_rows.append(
+            {
+                "line_id": line_id,
+                "type": "combo",
+                "strategy_name": f"{base_leg_key}+{regime['gate_name']}",
+                "mode": "long_only",
+                "shortlist_source": (
+                    f"{base_leg_key}={LEGS[base_leg_key]['parameters']};"
+                    f"gate={regime['gate_name']}"
+                ),
+                "n_windows": len(result.window_table),
+                "combo_method": "regime_filter",
+                **metrics,
+            }
+        )
+
+        print(
+            f"  Stitched OOS Sharpe: {metrics['sharpe']:.4f}   "
+            f"Net return: {metrics['net_return']:.4f}   "
+            f"Max DD: {metrics['max_drawdown']:.4f}"
+        )
 
     print_section("SAVING RESULTS")
 

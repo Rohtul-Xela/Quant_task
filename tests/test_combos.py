@@ -70,3 +70,22 @@ def test_invalid_method_raises():
 
     with pytest.raises(ValueError):
         combine_signals(df_a, df_b, "xor")
+
+
+@pytest.mark.parametrize(
+    "base_signal,gate,expected",
+    [
+        (1, 1, 1.0),   # trading signal active, regime open -> pass through
+        (1, 0, 0.0),   # trading signal active, regime closed -> blocked
+        (0, 1, 0.0),   # no trading signal, regime open -> still flat
+        (0, 0, 0.0),   # no trading signal, regime closed -> flat
+        (-1, 1, -1.0),  # long-short base signal passes through unchanged
+        (-1, 0, 0.0),
+    ],
+)
+def test_regime_filter_truth_table(base_signal, gate, expected):
+    df_a = _make_signal({("2020-01-01", "AAA"): base_signal})
+    df_b = _make_signal({("2020-01-01", "AAA"): gate})
+
+    result = combine_signals(df_a, df_b, "regime_filter")
+    assert result["signal"].iloc[0] == expected

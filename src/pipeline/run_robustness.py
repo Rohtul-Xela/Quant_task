@@ -40,7 +40,7 @@ SWEEP_RESULTS_CSV = (
     PROJECT_ROOT / "src" / "data" / "data" / "processed" / "strategy_sweep_results.csv"
 )
 
-N_SWEEP_CONFIGS = 34  # Phase 1 in-sample sweep — see confirm_shortlist.py
+N_SWEEP_CONFIGS = 66  # Phase 1 in-sample sweep (34 original + 32 from the 4 new families) — see confirm_shortlist.py
 
 
 def print_section(title: str) -> None:

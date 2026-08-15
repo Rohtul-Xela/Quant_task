@@ -7,15 +7,17 @@ re-optimization, stitches the OOS segments into one continuous curve
 per line, and writes results/walkforward_results.csv +
 results/walkforward_windows.csv + per-line stitched daily parquet.
 
-IMPORTANT — shortlist collapse: the Phase 1 shortlist has 6 entries,
-but two pairs share a (family, mode): the two SMA long-only configs
-(50/200 and 10/50) and the two RSI long-only configs. Walk-forward
-re-optimizes over the FULL family parameter grid every window, so
-re-running the same grid from a different in-sample "starting point"
-is deterministic and produces an identical walk-forward path. Running
-it twice would be wasted computation, not a different result. So this
-script runs 4 distinct walk-forward lines, not 6 — documented here and
-in the report rather than silently dropping the duplication.
+IMPORTANT — shortlist collapse: the Phase 1 shortlist has 6 curated
+entries plus 4 programmatically-selected entries (one per new family:
+MACD, Stochastic, Bollinger, MFI). Two curated pairs share a (family,
+mode): the two SMA long-only configs (50/200 and 10/50) and the two
+RSI long-only configs. Walk-forward re-optimizes over the FULL family
+parameter grid every window, so re-running the same grid from a
+different in-sample "starting point" is deterministic and produces an
+identical walk-forward path. Running it twice would be wasted
+computation, not a different result. So this script runs 8 distinct
+walk-forward lines, not 10 — documented here and in the report rather
+than silently dropping the duplication.
 """
 
 from __future__ import annotations
@@ -38,9 +40,13 @@ from src.backtest.backtest import (  # noqa: E402
     load_yahoo_prices,
 )
 from src.strategy.strategies import (  # noqa: E402
+    BOLLINGER_PARAMETER_GRID,
     DONCHIAN_PARAMETER_GRID,
+    MACD_PARAMETER_GRID,
+    MFI_PARAMETER_GRID,
     RSI_PARAMETER_GRID,
     SMA_PARAMETER_GRID,
+    STOCHASTIC_PARAMETER_GRID,
 )
 from src.walkforward.harness import run_walk_forward_line  # noqa: E402
 from src.walkforward.windows import generate_windows, windows_to_frame  # noqa: E402
@@ -101,6 +107,42 @@ LINES = [
         "parameter_grid": DONCHIAN_PARAMETER_GRID,
         "shortlist_source": [
             "donchian_breakout__window=40__long_only",
+        ],
+    },
+    {
+        "line_id": "macd_crossover__long_only",
+        "strategy_name": "macd_crossover",
+        "mode": "long_only",
+        "parameter_grid": MACD_PARAMETER_GRID,
+        "shortlist_source": [
+            "best in-sample long_only macd_crossover config (see results/shortlist.csv)",
+        ],
+    },
+    {
+        "line_id": "stochastic_crossover__long_only",
+        "strategy_name": "stochastic_crossover",
+        "mode": "long_only",
+        "parameter_grid": STOCHASTIC_PARAMETER_GRID,
+        "shortlist_source": [
+            "best in-sample long_only stochastic_crossover config (see results/shortlist.csv)",
+        ],
+    },
+    {
+        "line_id": "bollinger_mean_reversion__long_only",
+        "strategy_name": "bollinger_mean_reversion",
+        "mode": "long_only",
+        "parameter_grid": BOLLINGER_PARAMETER_GRID,
+        "shortlist_source": [
+            "best in-sample long_only bollinger_mean_reversion config (see results/shortlist.csv)",
+        ],
+    },
+    {
+        "line_id": "mfi_mean_reversion__long_only",
+        "strategy_name": "mfi_mean_reversion",
+        "mode": "long_only",
+        "parameter_grid": MFI_PARAMETER_GRID,
+        "shortlist_source": [
+            "best in-sample long_only mfi_mean_reversion config (see results/shortlist.csv)",
         ],
     },
 ]

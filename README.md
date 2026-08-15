@@ -1,10 +1,11 @@
 # Stockhunt Test Task
 
-Point-in-time S&P 500 backtesting research: 21 technical indicators,
-rule-based strategies, walk-forward validation, strategy combinations,
-a purged/embargoed ML layer, benchmarks, cost sensitivity, and
-robustness evidence, over the ~634-ticker research universe from
-2008-01-02 through 2026-08-11.
+Point-in-time S&P 500 backtesting research: 20 technical indicators (7
+wired as rule-based strategies spanning trend/momentum/volatility/volume,
+the rest available as ML features), walk-forward validation, strategy
+combinations (AND/OR/weighted-vote/regime-filter), a purged/embargoed ML
+layer, benchmarks, cost sensitivity, and robustness evidence, over the
+~634-ticker research universe from 2008-01-02 through 2026-08-11.
 
 ## One-command run
 
@@ -32,19 +33,20 @@ python run_all.py --only run_benchmarks,run_cost_sensitivity
 Each phase is also independently runnable, e.g.
 `python -m src.pipeline.run_walkforward`.
 
-**Expected runtime**: Phase 2 (walk-forward, 4 strategy families × 14
-rolling windows) and Phase 4 (ML, 2 models × 14 purged/embargoed
-folds over ~1M+ row training sets) are the dominant cost. Budget
-roughly 30-60 minutes end-to-end on a single machine, most of it in
-Phases 2 and 4.
+**Expected runtime**: Phase 2 (walk-forward, 8 strategy lines × 14
+rolling windows) and Phase 4 (ML, 2 models × 14 purged/embargoed folds
+over ~1M+ row training sets) are the dominant cost. Budget roughly
+45-75 minutes end-to-end on a single machine. (`strategy_sweep_results.csv` is gitignored — regenerate it with
+`run_sweep.py` first if it's missing, see above; that adds ~25-30 more
+minutes for its 66 configs.)
 
 ## What each phase produces
 
 | Phase | Script | Output |
 |---|---|---|
-| 1 | `src/pipeline/confirm_shortlist.py` | `results/shortlist.csv` — the 6 shortlisted in-sample configs, re-verified against the live sweep CSV, plus an equity-curve sanity check |
-| 2 | `src/pipeline/run_walkforward.py` | `results/walkforward_results.csv` (rows with `type=single`), `results/walkforward_window_detail.csv`, `results/walkforward_equity/*.parquet` |
-| 3 | `src/pipeline/run_combinations.py` | Appends `type=combo` rows to `results/walkforward_results.csv` |
+| 1 | `src/pipeline/confirm_shortlist.py` | `results/shortlist.csv` — 6 curated + 4 programmatically-selected (best-in-sample-long-only per new indicator family) shortlisted configs, re-verified against the live sweep CSV, plus an equity-curve sanity check |
+| 2 | `src/pipeline/run_walkforward.py` | `results/walkforward_results.csv` (rows with `type=single`, 8 distinct lines), `results/walkforward_window_detail.csv`, `results/walkforward_equity/*.parquet` |
+| 3 | `src/pipeline/run_combinations.py` | Appends `type=combo` rows to `results/walkforward_results.csv` — 3 pairs × {AND, OR, weighted-vote} plus 2 regime-filter pairs |
 | 4 | `src/pipeline/run_ml.py` | `results/ml_results.csv`, `results/ml_feature_importance.csv`, `results/ml_*_folds.csv` |
 | 5 | `src/pipeline/run_benchmarks.py` | `results/benchmark_results.csv` (SPY buy-hold, equal-weight basket) |
 | 6 | `src/pipeline/run_cost_sensitivity.py` | `results/cost_sensitivity.csv`, `results/charts/cost_sensitivity.png` |
@@ -88,13 +90,20 @@ reports/report.md  the final write-up
 
 ## Known limitations (see `reports/report.md` for the full list)
 
+- **7 of the 20 available indicators have rule-based trading strategies**
+  (`sma_crossover`, `donchian_breakout`, `macd_crossover` — trend;
+  `rsi_mean_reversion`, `stochastic_crossover` — momentum;
+  `bollinger_mean_reversion` — volatility; `mfi_mean_reversion` — volume).
+  All four required families are represented, but not all 20 indicators
+  have rules — the remaining 13 are still used as ML features (Phase 4).
 - Slicing a strategy's full-history signal to a window makes day 1 of
   every OOS segment look like a from-flat entry to `run_backtest`'s
   turnover calculation (it only sees the rows it's given) — a small,
   documented mechanical artifact of stitching, not a look-ahead leak.
 - The Phase 1 shortlist was screened by in-sample Sharpe from the
-  existing sweep, not from inside the walk-forward loop itself — a
-  stated, deliberate time-constrained compromise (see report).
-- Breadth-across-the-universe and the parameter-stability surface are
-  the first two things cut under time pressure per the task's own
-  contingency plan, if they didn't make it into this run.
+  sweep, not from inside the walk-forward loop itself — a stated,
+  deliberate time-constrained compromise (see report §2, §10 — the
+  in-sample winner, Bollinger, actually lost to SMA out-of-sample).
+- Breadth and the parameter-stability surface were only computed for
+  the top rule-based/ML finalists and the SMA family respectively, not
+  every strategy tested, to keep scope bounded.

@@ -183,6 +183,76 @@ def confirm_against_sweep(sweep: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+# =====================================================================
+# New-family additions (MACD, Stochastic, Bollinger, MFI)
+#
+# Unlike the curated SHORTLIST above, these are picked programmatically
+# — best in-sample long_only Sharpe per new family — rather than
+# hardcoded, since this script is what re-derives them fresh each time
+# the sweep changes. Selection rule stated explicitly, not silent.
+# =====================================================================
+
+NEW_FAMILIES = [
+    "macd_crossover",
+    "stochastic_crossover",
+    "bollinger_mean_reversion",
+    "mfi_mean_reversion",
+]
+
+
+def pick_best_of_new_families(sweep: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+
+    param_cols = [c for c in sweep.columns if c.startswith("param_")]
+
+    for strategy_name in NEW_FAMILIES:
+
+        candidates = sweep[
+            (sweep["strategy_name"] == strategy_name)
+            & (sweep["mode"] == "long_only")
+        ]
+
+        if candidates.empty:
+            raise ValueError(
+                f"No long_only rows found for new family {strategy_name!r} "
+                "in the sweep results."
+            )
+
+        best = candidates.sort_values("sharpe", ascending=False).iloc[0]
+
+        parameters = {
+            c.removeprefix("param_"): best[c]
+            for c in param_cols
+            if pd.notna(best[c])
+        }
+
+        rows.append(
+            {
+                "strategy_id": best["strategy_id"],
+                "strategy_name": strategy_name,
+                "mode": "long_only",
+                "parameters": parameters,
+                "reason": (
+                    f"Best in-sample long_only Sharpe among {strategy_name} "
+                    "configs (programmatically selected, family had no "
+                    "rule-based coverage before this pass)."
+                ),
+                "sweep_sharpe": best["sharpe"],
+                "sweep_net_return": best["net_return"],
+                "sweep_max_drawdown": best["max_drawdown"],
+            }
+        )
+
+        print(
+            f"  OK  {best['strategy_id']:<70s} "
+            f"Sharpe={best['sharpe']:.4f}  "
+            f"NetReturn={best['net_return']:.4f}  "
+            f"MaxDD={best['max_drawdown']:.4f}"
+        )
+
+    return pd.DataFrame(rows)
+
+
 def sanity_check_top_strategy(
     df: pd.DataFrame,
     yahoo_prices: pd.DataFrame,
@@ -302,6 +372,14 @@ def main() -> None:
     print_section("CONFIRMING SHORTLIST AGAINST CURRENT SWEEP CSV")
 
     shortlist_df = confirm_against_sweep(sweep)
+
+    print_section("SELECTING BEST OF EACH NEW FAMILY (MACD/STOCHASTIC/BOLLINGER/MFI)")
+
+    new_family_df = pick_best_of_new_families(sweep)
+
+    shortlist_df = pd.concat(
+        [shortlist_df, new_family_df], ignore_index=True
+    )
 
     print_section("EQUITY CURVE SANITY CHECK (TOP STRATEGY)")
 

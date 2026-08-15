@@ -16,6 +16,12 @@ combined three ways:
   equal weights on two binary legs, weighted_vote degenerates to OR
   at the >=0.5 threshold — which is why unequal weights are the
   default here, not an afterthought.
+- "regime_filter": sig_a is the base trading signal, sig_b is a regime
+  gate (1.0 = regime open, 0.0 = regime closed — see
+  `adx_trend_regime_signal`/`low_volatility_regime_signal` in
+  strategies.py). combined = sig_a where the gate is open, else flat.
+  Unlike the other three methods, the two inputs are not
+  interchangeable here — sig_b is never itself a trading signal.
 """
 
 from __future__ import annotations
@@ -23,7 +29,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-VALID_METHODS = {"and", "or", "weighted_vote"}
+VALID_METHODS = {"and", "or", "weighted_vote", "regime_filter"}
 
 
 def combine_signals(
@@ -80,7 +86,7 @@ def combine_signals(
             default=0.0,
         )
 
-    else:  # weighted_vote
+    elif method == "weighted_vote":
         if not (0.0 < weight_a < 1.0):
             raise ValueError("weight_a must be strictly between 0 and 1.")
         weight_b = 1.0 - weight_a
@@ -90,6 +96,9 @@ def combine_signals(
             [1.0, -1.0],
             default=0.0,
         )
+
+    else:  # regime_filter
+        combined = np.where(b == 1.0, a, 0.0)
 
     merged["signal"] = combined
 
