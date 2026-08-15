@@ -1,0 +1,15 @@
+# Environment
+.venv/
+__pycache__/
+*.pyc
+.idea/
+.pytest_cache/
+
+# Data pipeline cache (regenerable — see README: download_all.py -> build_pit_dataset.py
+# -> build_features.py -> run_sweep.py). ~800MB, not meant to live in git.
+src/data/data/raw/
+src/data/data/processed/
+
+# Leftover top-level demo dir from main.py's single-ticker download example.
+data/raw/
+data/validation/
