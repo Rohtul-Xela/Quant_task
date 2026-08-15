@@ -8,3 +8,9 @@ lightgbm==4.7.0
 xgboost==3.4.0
 matplotlib==3.11.1
 pytest==9.1.1
+
+# Report PDF rendering only (reports/build_report_pdf.py) -- not used by
+# run_all.py or any research/backtest code.
+Markdown==3.10.3
+beautifulsoup4==4.15.0
+reportlab==4.5.1

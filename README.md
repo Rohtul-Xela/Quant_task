@@ -112,7 +112,15 @@ src/pipeline/      one script per phase, orchestrated by run_all.py
 tests/             pytest: window correctness, purge/embargo boundaries,
                    combo truth table, no-look-ahead regression guard
 results/           all CSVs, parquet equity curves, charts (generated, gitignored-worthy)
-reports/report.md  the final write-up
+reports/report.md  the final write-up (source of truth)
+reports/report.pdf the same content, rendered — this is the actual 5-page-max deliverable
+```
+
+The report itself (`reports/report.md`) is hand-curated analysis, not machine-regenerated from
+a template, so it isn't part of `run_all.py`. After editing it, rebuild the PDF with:
+
+```bash
+python -m reports.build_report_pdf
 ```
 
 ## Known limitations (see `reports/report.md` for the full list)
