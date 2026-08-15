@@ -5,10 +5,18 @@ __pycache__/
 .idea/
 .pytest_cache/
 
-# Data pipeline cache (regenerable — see README: download_all.py -> build_pit_dataset.py
-# -> build_features.py -> run_sweep.py). ~800MB, not meant to live in git.
+# Data pipeline cache (regenerable — see README for the full build order).
+# ~800MB, not meant to live in git.
 src/data/data/raw/
-src/data/data/processed/
+src/data/data/processed/*
+
+# Exception: hand-verified source_ticker -> yahoo_ticker mappings (renamed/
+# delisted securities). Not regenerable by any script — deliberately manual,
+# see src/data/security_mapping.py — so it must be committed, unlike
+# everything else under processed/. (A trailing-slash exclusion on the
+# processed/ directory itself would prune it from traversal entirely and
+# make this negation unreachable — see git-ignore(5) — hence processed/*.)
+!src/data/data/processed/security_mapping.csv
 
 # Leftover top-level demo dir from main.py's single-ticker download example.
 data/raw/
