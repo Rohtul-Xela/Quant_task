@@ -22,6 +22,19 @@ than it helps:
     or time, no scale-free counterpart in the feature set).
 This is a minimal hygiene step, not new feature engineering — every
 column used is one that already exists in build_features.py's output.
+
+Cross-sectional point-in-time percentile normalization: every feature
+column is replaced by its rank, as a percentile in [0, 1], among all
+tickers with a valid value for that column ON THE SAME DATE — e.g. a
+raw RSI of 75 becomes "this ticker's RSI is higher than 82% of the
+universe today." This is point-in-time by construction (each date's
+ranks use only that date's own already-causal indicator values, never
+a future or full-sample statistic) and makes features comparable
+across tickers and across time regardless of a feature's absolute
+scale or a market-wide level shift (e.g. a volatility regime change
+shifting every ticker's ATR up together no longer moves the *ranks*).
+Replaces raw indicator values as the model input entirely — not an
+additional column set.
 """
 
 from __future__ import annotations
@@ -84,9 +97,25 @@ def feature_columns(df: pd.DataFrame) -> list[str]:
     return sorted(candidates)
 
 
+def cross_sectional_percentile_rank(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
+    """
+    Replace each of `cols` with its same-date cross-sectional percentile
+    rank in [0, 1]. `pct=True` ranking within a `groupby("date")` uses
+    only that date's own rows, so this cannot look forward in time; NaNs
+    are left as NaN (excluded from that date's ranking, not imputed).
+    """
+
+    result = df.copy()
+
+    result[cols] = result.groupby("date")[cols].rank(pct=True)
+
+    return result
+
+
 def build_ml_dataset(
     df: pd.DataFrame,
     yahoo_returns: pd.DataFrame,
+    use_percentile_rank: bool = False,
 ) -> tuple[pd.DataFrame, list[str]]:
     """
     Returns (dataset, feature_cols).
@@ -98,9 +127,24 @@ def build_ml_dataset(
     missing or exactly-zero next_return are dropped — a missing return
     means there is nothing tradable to label, and an exact zero is an
     ambiguous up/down call that would just inject label noise.
+
+    use_percentile_rank=True applies `cross_sectional_percentile_rank`
+    (see above) instead of raw feature values. Opt-in, default False:
+    tried as an ablation (`src/pipeline/run_ml_pit_percentile_ablation.py`)
+    and found to decouple the model's predicted-probability calibration
+    from the fixed 0.70/0.30 trading-rule threshold (percentile-ranked
+    features are uniform on [0,1] with no fat tails, so predicted
+    probabilities compress toward 0.5 and the threshold stops firing) —
+    a real, diagnosed finding, not adopted as the default because it
+    would require re-deriving the threshold rather than reusing the one
+    that deliberately echoes the product's own "70% confidence" framing.
+    See report.md for the full writeup.
     """
 
     cols = feature_columns(df)
+
+    if use_percentile_rank:
+        df = cross_sectional_percentile_rank(df, cols)
 
     merged = df.merge(
         yahoo_returns[["date", "ticker", "next_date", "next_return"]],

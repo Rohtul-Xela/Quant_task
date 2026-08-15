@@ -7,6 +7,33 @@ combinations (AND/OR/weighted-vote/regime-filter), a purged/embargoed ML
 layer, benchmarks, cost sensitivity, and robustness evidence, over the
 ~634-ticker research universe from 2008-01-02 through 2026-08-11.
 
+## Foundation (built before this phase, ~6-8 hours)
+
+The PIT data/backtest foundation this build extends was hand-built, not
+generated: point-in-time S&P 500 membership reconstruction, Yahoo price
+download and ticker mapping (including renamed/delisted securities),
+corporate-action and OHLC-consistency validation, and investigation of
+missing/corrupted price histories. Several decisions here directly protect
+the no-look-ahead and cost-realism guarantees the rest of this project
+relies on:
+
+- A fixed 2026-08-11 research cutoff (`RESEARCH_END_DATE`), so raw Yahoo
+  data updating after that date can never leak into the research dataset.
+- NYSE-session-aware next-day return construction (`build_next_day_returns`
+  in `src/backtest/backtest.py`), including correct handling of extended
+  exchange closures (e.g. Hurricane Sandy, Oct 2012) — not a naive
+  calendar-day shift.
+- `EXCLUDED_PRICE_TICKERS`: known-corrupted price histories excluded by
+  name, documented, not silently dropped.
+- Extreme returns are flagged and retained, never clipped — preserving
+  genuine tail events rather than making the data look tamer than it was.
+- Portfolio construction treats a signal without a valid next-session
+  return as untradable, not silently zero — no fabricated fills.
+
+This foundation was validated with an initial 34-configuration in-sample
+sweep (long-only and long/short, 5bps costs, `run_sweep.py`) before any of
+the work described in the rest of this README began.
+
 ## One-command run
 
 ```bash

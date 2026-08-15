@@ -1,0 +1,3 @@
+line_id,model,first_fold_proba_min,first_fold_proba_max,first_fold_trade_trigger_pct,sharpe,sortino,net_return,max_drawdown,months_in_profit,months_count,months_in_profit_pct,avg_monthly_pnl,avg_daily_turnover,avg_gross_exposure,avg_net_exposure,strategy_id,cost_bps
+ablation_pct_logistic_regression,logistic_regression,0.4532125447896488,0.5576880593754372,0.0,,,0.0,0.0,0,164,0.0,0.0,0.0,0.0,0.0,ablation_pct_logistic_regression,5.0
+ablation_pct_lightgbm,gbm,0.26364408783536447,0.6561505911996387,4.4858136144443195e-05,0.11258448357332596,0.01741820743754926,0.08088733991629504,-0.27006302469546695,11,164,0.06707317073170732,0.0005878278061904486,0.018923374199609218,0.010230926629640456,0.0029231218941829875,ablation_pct_lightgbm,5.0

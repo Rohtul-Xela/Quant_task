@@ -53,6 +53,20 @@ numbers below are reproduced by `python run_all.py`.
 
 ## 2. Method
 
+- **Data foundation** (~6-8 hours, built before the work in the rest of this
+  report): PIT S&P 500 membership reconstruction, Yahoo price download and
+  ticker mapping (renamed/delisted securities), corporate-action and
+  OHLC-consistency validation, missing/corrupted price history investigation.
+  Several of its decisions are directly load-bearing for the no-look-ahead and
+  cost-realism claims made throughout this report: a fixed 2026-08-11 research
+  cutoff so later Yahoo data can never leak in; NYSE-session-aware next-day
+  return construction (`build_next_day_returns`), including correct handling
+  of extended exchange closures (e.g. Hurricane Sandy, Oct 2012), not a naive
+  calendar-day shift; known-corrupted tickers excluded by name
+  (`EXCLUDED_PRICE_TICKERS`); extreme returns flagged and retained, never
+  clipped; and a signal without a valid next-session return treated as
+  untradable, never a fabricated fill. Validated with an initial 34-config
+  in-sample sweep before any walk-forward/ML/combination work began.
 - **Indicator coverage**: `indicators.py` computes 20 indicators spanning trend,
   momentum, volatility, and volume. Before this pass, only 3 had rule-based
   trading strategies (`sma_crossover`, `rsi_mean_reversion`, `donchian_breakout` —
@@ -159,6 +173,26 @@ of the 634 tickers in the universe (avg. gross exposure 7.4%) — a
 threshold-triggered, low-frequency, concentrated strategy. Its equity curve
 (`results/charts/equity_curves.png`) is visibly a staircase of long flat
 stretches and a few large jumps (notably 2024), not a smooth compounding line.
+
+**Feature-representation ablation** (`src/pipeline/run_ml_pit_percentile_ablation.py`,
+`results/ml_pit_percentile_ablation.csv`, not part of the primary result above):
+replacing raw indicator values with same-date cross-sectional percentile ranks
+(`build_ml_dataset(..., use_percentile_rank=True)` in `src/ml/dataset.py`) is a
+principled normalization — it makes a feature comparable across tickers
+regardless of absolute scale or a market-wide regime shift — but it broke the
+fixed 0.70/0.30 trading threshold rather than improving on it. Percentile ranks
+are uniform on [0,1] by construction, with no fat tails, so logistic
+regression's predicted P(up) compressed to **[0.453, 0.558]** — it never once
+crossed 0.70 across 89,170 first-fold predictions, i.e. the model made zero
+trades. LightGBM widened slightly to [0.264, 0.656] but still only fired 4
+times out of 89,170. The threshold was calibrated implicitly against the raw
+feature distribution; changing the feature representation without
+re-calibrating the threshold together with it silently disables the trading
+rule. Kept as a documented ablation rather than adopted as the primary result —
+recalibrating the threshold under the new distribution would mean abandoning
+the literal 0.70/0.30 framing, which was a deliberate choice (§2), not
+something to trade away for a normalization technique that, on this evidence,
+doesn't actually improve the outcome here.
 
 ## 6. Benchmarks
 
@@ -308,14 +342,16 @@ would have overstated the edge by roughly 9% of the Sharpe itself.
   but a real performance gap, not just a style choice: the dense
   parameter-stability grids for Bollinger and MFI took most of this pass's
   total runtime for exactly this reason.
-- Not attempted: SHAP feature importance (permutation importance used instead);
-  long-short combos; regime-filter pairings beyond the 2 tested; wiring the
-  remaining 13 indicators as rules; cross-sectional point-in-time percentile
-  normalization of ML features (raw indicator values used instead, scaled
-  per-training-fold); PCA/SHAP/Boruta-driven feature reduction ahead of model
-  training (5 redundant columns were dropped by manual inspection instead, see
-  `src/ml/dataset.py`); ML hyperparameter tuning (both models use fixed,
-  untuned defaults).
+- **Cross-sectional PIT percentile normalization was attempted, not skipped**
+  (§5 ablation) — tried, diagnosed as breaking the fixed confidence threshold,
+  not adopted. Still genuinely not attempted: SHAP feature importance
+  (permutation importance used instead); long-short combos; regime-filter
+  pairings beyond the 2 tested; wiring the remaining 13 indicators as rules;
+  PCA/SHAP/Boruta-driven feature reduction ahead of model training (5 redundant
+  columns were dropped by manual inspection instead, see `src/ml/dataset.py`);
+  ML hyperparameter tuning (both models use fixed, untuned defaults); a
+  re-calibrated threshold that would make the percentile-normalized features
+  usable (e.g. per-window quantile-based cutoffs instead of a fixed value).
 
 ## Appendix: reproducing these numbers
 
