@@ -227,19 +227,45 @@ and the ML logistic model (p=0.003). **Not significant**: MACD (p=0.069, just
 misses), Stochastic, both long-short lines, `ml_lightgbm`, and both
 Donchian-involving AND combos. Full table: `results/robustness_bootstrap.csv`.
 
-**Parameter-stability**: reusing the existing SMA sweep grid (no new backtests),
-the winning 50/200 pair scores 0.74 vs. its nearest tested neighbor 30/100 at
-0.57 — a real gap, not a smooth plateau; the grid is sparse (6 pairs, not a full
-cross-product), so a local-spike-at-the-edge explanation can't be ruled out. No
-stability grid was built for the 4 new indicators (scope bound for this pass).
-Chart: `results/charts/param_stability_sma.png`.
+**Parameter-stability**: the original sparse 6-point SMA sweep grid understated
+this — its nearest tested neighbor to the 50/200 winner was 30/100, a real gap
+(0.74 vs. 0.57) that couldn't rule out a local spike. A dense 5×5 local grid was
+built around each of the 5 finalists with genuine positive Sharpe (SMA,
+Bollinger, MFI, RSI, MACD — Donchian, Stochastic, and RSI long-short excluded as
+non-winners), varying each strategy's two structural parameters while holding
+the rest fixed at their winning values, in-sample, same methodology as the
+original sweep. **All five show a real plateau, not a spike**: SMA ranges
+0.62–0.78 (spread 0.16) across the whole 5×5 neighborhood, MACD 0.26–0.33
+(spread 0.065, the tightest of the five), RSI 0.47–0.77 (spread 0.31), Bollinger
+0.46–0.82 (spread 0.35), MFI 0.51–0.71 (spread 0.20) — every cell in every grid
+stays positive, and each original winner sits inside its plateau rather than at
+an isolated peak (Bollinger's grid actually found a nearby point 0.06 Sharpe
+*better* than the original shortlisted pick — window=17/entry=-0.5 vs.
+window=20/entry=-1.5 — evidence the original coarse sweep simply hadn't sampled
+that neighborhood, not that the result is fragile). Charts:
+`results/charts/param_stability_{sma_crossover,macd_crossover,rsi_mean_reversion,bollinger_mean_reversion,mfi_mean_reversion}.png`.
 
-**Breadth**: `combo__sma_rsi__or` was profitable on 541/607 traded tickers
-(89.1%). `ml_logistic_regression` was profitable on 16/30 (53.3%) — barely above
-a coin flip on the small set of names it actually traded. Breadth was not
-recomputed for the new standalone strategies or regime-filter combos this pass
-(same scope bound as before); `per_ticker_breadth()` in
-`src/evaluate/robustness.py` can be pointed at any saved `__signal.parquet`.
+**Breadth**: computed for all 21 tested strategies (`results/breadth_summary.csv`),
+not just the top finalist. `combo__sma_rsi__or` leads at 541/607 (89.1%); the
+next four are also combos (83–84%). Breadth and Sharpe don't always agree:
+`stochastic_crossover` has high breadth (78.8%) despite ~zero Sharpe (many small
+winners, no edge after costs), and `donchian_breakout`/`ml_lightgbm` show the
+opposite pattern — `donchian_breakout` is profitable on 49.4% of names yet has
+the worst Sharpe and drawdown in the study (a few catastrophic losers overwhelm
+many modest winners); `ml_lightgbm` is profitable on 58.1% of the (few) names it
+traded yet still lost money overall. `ml_logistic_regression` remains the
+narrowest bet in the study: 16/30 (53.3%).
+
+**Survivorship bias, quantified** (the PDF's explicit ask, not previously
+closed): re-running `combo__sma_rsi__or`'s exact stitched OOS signal, unchanged,
+restricted to only the 474 tickers that are S&P 500 constituents *today*
+(vs. the full 611-ticker PIT-reconstructed universe the signal actually traded)
+— same window, same cost — **survivorship bias overstates the Sharpe ratio by
++0.084 (0.893 → 0.977) and net return by +108 percentage points (557% → 665%)**.
+Direction: using today's list instead of the correct PIT list makes a strategy
+look better than it is, as expected — a non-PIT-aware backtest on this data
+would have overstated the edge by roughly 9% of the Sharpe itself.
+`results/survivorship_bias_quantification.csv`.
 
 ## 10. Where results are weakest
 
@@ -273,16 +299,23 @@ recomputed for the new standalone strategies or regime-filter combos this pass
   segment looks like a from-flat entry rather than a continuation of the prior
   window's book — a small, documented mechanical overstatement of turnover/cost
   at each of the 13 roll dates. Not a look-ahead leak.
-- **Parameter-stability surface is sparse and SMA-only**, not a dense grid across
-  all indicators (§9).
 - **Weak ranking stability** (§8): the walk-forward re-optimization step is not
   clearly finding a durable signal above noise at this grid resolution.
-- **Breadth was only computed for the top rule-based and top ML finalist**, not
-  every line, to keep scope bounded.
+- The two stateful mean-reversion state machines with the slowest per-call
+  runtime (`_rsi_target_state_long_only/_long_short`, reused by MFI; the
+  Bollinger equivalent) are plain per-ticker Python loops, not vectorized —
+  functionally correct (see `tests/test_no_lookahead.py` and the smoke tests)
+  but a real performance gap, not just a style choice: the dense
+  parameter-stability grids for Bollinger and MFI took most of this pass's
+  total runtime for exactly this reason.
 - Not attempted: SHAP feature importance (permutation importance used instead);
-  a full cross-product parameter grid for the stability surface; long-short
-  combos; regime-filter pairings beyond the 2 tested; wiring the remaining 13
-  indicators as rules.
+  long-short combos; regime-filter pairings beyond the 2 tested; wiring the
+  remaining 13 indicators as rules; cross-sectional point-in-time percentile
+  normalization of ML features (raw indicator values used instead, scaled
+  per-training-fold); PCA/SHAP/Boruta-driven feature reduction ahead of model
+  training (5 redundant columns were dropped by manual inspection instead, see
+  `src/ml/dataset.py`); ML hyperparameter tuning (both models use fixed,
+  untuned defaults).
 
 ## Appendix: reproducing these numbers
 

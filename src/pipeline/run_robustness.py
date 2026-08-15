@@ -158,7 +158,7 @@ def main() -> None:
     print(f"Saved: {CHARTS_DIR / 'param_stability_sma.png'}")
 
     # -----------------------------------------------------------------
-    # Breadth (best rule-based + best ML finalist)
+    # Breadth (every tested strategy)
     # -----------------------------------------------------------------
 
     print_section("BREADTH")
@@ -169,20 +169,18 @@ def main() -> None:
     ].copy()
     yahoo_returns = build_next_day_returns(yahoo_prices)
 
-    wf_df = pd.read_csv(OUTPUT_DIR / "walkforward_results.csv").dropna(subset=["sharpe"])
-    ml_df = pd.read_csv(OUTPUT_DIR / "ml_results.csv").dropna(subset=["sharpe"])
-
-    best_rule_id = wf_df.sort_values("sharpe", ascending=False).iloc[0]["line_id"]
-    best_ml_id = ml_df.sort_values("sharpe", ascending=False).iloc[0]["line_id"]
+    # Every tested strategy that has a saved stitched-OOS signal (single,
+    # combo, and ML lines alike) — not just the top rule-based/ML finalist —
+    # so breadth is reported for every strategy in the results tables, not a
+    # curated subset.
+    signal_paths = sorted(EQUITY_DIR.glob("*__signal.parquet"))
+    print(f"Found {len(signal_paths)} stitched signal files.")
 
     breadth_rows = []
 
-    for line_id in [best_rule_id, best_ml_id]:
-        signal_path = EQUITY_DIR / f"{line_id}__signal.parquet"
+    for signal_path in signal_paths:
 
-        if not signal_path.exists():
-            print(f"  SKIP {line_id}: no stitched signal parquet found.")
-            continue
+        line_id = signal_path.name.removesuffix("__signal.parquet")
 
         signal_df = pd.read_parquet(signal_path)
         traded = per_ticker_breadth(signal_df, yahoo_returns)
@@ -197,8 +195,9 @@ def main() -> None:
             f"tickers profitable ({summary['breadth_pct']:.1%})"
         )
 
-    pd.DataFrame(breadth_rows).to_csv(OUTPUT_DIR / "breadth_summary.csv", index=False)
-    print(f"\nSaved: {OUTPUT_DIR / 'breadth_summary.csv'}")
+    breadth_df = pd.DataFrame(breadth_rows).sort_values("breadth_pct", ascending=False)
+    breadth_df.to_csv(OUTPUT_DIR / "breadth_summary.csv", index=False)
+    print(f"\nSaved: {OUTPUT_DIR / 'breadth_summary.csv'} ({len(breadth_df)} strategies)")
 
 
 if __name__ == "__main__":

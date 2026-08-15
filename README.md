@@ -104,6 +104,17 @@ reports/report.md  the final write-up
   sweep, not from inside the walk-forward loop itself — a stated,
   deliberate time-constrained compromise (see report §2, §10 — the
   in-sample winner, Bollinger, actually lost to SMA out-of-sample).
-- Breadth and the parameter-stability surface were only computed for
-  the top rule-based/ML finalists and the SMA family respectively, not
-  every strategy tested, to keep scope bounded.
+- Breadth is computed for every tested strategy
+  (`results/breadth_summary.csv`, 21 rows) and parameter-stability for
+  the 5 finalists with genuine positive Sharpe — dense 5x5 local grids
+  (`src/pipeline/run_param_stability.py`), all showing real plateaus.
+  Survivorship-bias direction is quantified
+  (`src/pipeline/quantify_survivorship_bias.py`,
+  `results/survivorship_bias_quantification.csv`): using today's S&P
+  500 list instead of the PIT-reconstructed universe overstates Sharpe
+  by +0.084 and net return by +108pp.
+- The stateful mean-reversion strategies (RSI, MFI, Bollinger) use
+  per-ticker Python loops for their entry/exit state machine, not
+  vectorized — correct but slow; the dense parameter-stability grids
+  for Bollinger/MFI took the bulk of that phase's runtime for this
+  reason. A real performance gap, not yet addressed.
