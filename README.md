@@ -41,14 +41,16 @@ pip install -r requirements.txt
 python run_all.py
 ```
 
-That's genuinely it, on a genuinely clean clone. `run_all.py` runs all 13
+That's genuinely it, on a genuinely clean clone. `run_all.py` runs all 16
 phases below in order, each as its own subprocess, stopping at the first
 failure (every later phase depends on an earlier phase's output files):
 phases 1-5 are the PIT data/backtest foundation (download membership,
 download prices, build the PIT dataset, build features, run the in-sample
 sweep — ~6-8 hours' worth of work the first time, network-bound and
 rate-limit-prone since it pulls ~650+ tickers from Yahoo Finance), and
-phases 6-13 are the walk-forward/ML/benchmark build (~45-75 minutes). The
+phases 6-16 are the walk-forward/ML/benchmark build, including three
+gap-closing analyses cited in the report (~80-120 minutes, dominated by
+phase 14's dense parameter-stability grids). The
 only input phase 1-5 can't produce itself is
 `src/data/data/processed/security_mapping.csv` (hand-verified
 renamed/delisted ticker mappings, e.g. `FB -> META`; not regenerable by
