@@ -6,12 +6,18 @@ from pathlib import Path
 import pandas as pd
 import yfinance as yf
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = PROJECT_ROOT / "src" / "data" / "data"
 
 START_DATE = "2008-01-01"
-END_DATE = "2026-08-11"
+# yfinance's `end` is exclusive (verified empirically against the pinned
+# yfinance==1.5.2), so this must be one day past the intended inclusive
+# research cutoff (RESEARCH_END_DATE in build_pit_dataset.py, "2026-08-11")
+# for the download to actually reach that date.
+END_DATE = "2026-08-12"
 
-PRICE_DIR = Path("data/raw/yahoo")
-STATUS_FILE = Path("data/validation/download_status.csv")
+PRICE_DIR = DATA_DIR / "raw" / "yahoo"
+STATUS_FILE = DATA_DIR / "validation" / "download_status.csv"
 
 
 def _flatten_yfinance_columns(
@@ -356,9 +362,7 @@ def download_ticker(
 def load_historical_tickers() -> list[str]:
     """Load canonical historical ticker universe."""
 
-    path = Path(
-        "data/processed/historical_tickers.csv"
-    )
+    path = DATA_DIR / "processed" / "historical_tickers.csv"
 
     if not path.exists():
         raise FileNotFoundError(

@@ -10,21 +10,16 @@ import pandas as pd
 # Configuration
 # =====================================================================
 
-MEMBERSHIP_FILE = Path(
-    "data/processed/membership_snapshots.parquet"
-)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = PROJECT_ROOT / "src" / "data" / "data"
 
-MAPPING_FILE = Path(
-    "data/processed/security_mapping.csv"
-)
+MEMBERSHIP_FILE = DATA_DIR / "processed" / "membership_snapshots.parquet"
 
-PRICE_DIR = Path(
-    "data/raw/yahoo"
-)
+MAPPING_FILE = DATA_DIR / "processed" / "security_mapping.csv"
 
-OUTPUT_FILE = Path(
-    "data/processed/pit_daily.parquet"
-)
+PRICE_DIR = DATA_DIR / "raw" / "yahoo"
+
+OUTPUT_FILE = DATA_DIR / "processed" / "pit_daily.parquet"
 
 # Fixed research cutoff for reproducibility.
 RESEARCH_END_DATE = pd.Timestamp("2026-08-11")

@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pandas as pd
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-MAPPING_FILE = Path(
-    "data/processed/security_mapping.csv"
+MAPPING_FILE = (
+    PROJECT_ROOT / "src" / "data" / "data" / "processed" / "security_mapping.csv"
 )
 
 

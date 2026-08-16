@@ -10,10 +10,15 @@ convention for a passive reference curve, not a proposed tradable
 strategy. SPY is used ONLY here, never as part of the strategy
 universe (hard constraint from the task brief).
 
-Reuses `build_next_day_returns` for the equal-weight basket so it is
-subject to the identical no-look-ahead, NYSE-session-aware return
-construction as every strategy in this project — not a separate,
-possibly-inconsistent return calculation.
+Reuses `build_next_day_returns` for BOTH benchmarks — the equal-weight
+basket and SPY alike — so both are subject to the identical
+no-look-ahead, NYSE-session-aware, t -> next-session return
+construction as every strategy in this project (signal on day t,
+return realized t -> t+1, row labeled at date t). SPY must not be
+built with a naive `pct_change()` (t-1 -> t, labeled at date t): that
+is one trading session out of alignment with every strategy and with
+the equal-weight basket, which silently corrupts any date-aligned
+comparison — correlation against strategy return streams above all.
 """
 
 from __future__ import annotations
@@ -28,7 +33,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.backtest.backtest import YAHOO_DIR, calculate_metrics  # noqa: E402
+from src.backtest.backtest import (  # noqa: E402
+    YAHOO_DIR,
+    build_next_day_returns,
+    calculate_metrics,
+)
 
 
 def spy_buy_and_hold(start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
@@ -41,26 +50,25 @@ def spy_buy_and_hold(start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
             "download_ticker(ticker='SPY', output_dir=YAHOO_DIR) first."
         )
 
-    prices = pd.read_parquet(spy_path)[["date", "adj_close"]].copy()
+    prices = pd.read_parquet(spy_path)[["date", "ticker", "adj_close"]].copy()
     prices["date"] = pd.to_datetime(prices["date"])
-    prices = prices.sort_values("date").reset_index(drop=True)
 
-    prices = prices[(prices["date"] >= start) & (prices["date"] <= end)]
-
-    prices["net_return"] = prices["adj_close"].pct_change()
-    prices = prices.dropna(subset=["net_return"])
+    returns = build_next_day_returns(prices)
+    returns = returns[
+        returns["date"].between(start, end) & returns["next_return"].notna()
+    ].sort_values("date")
 
     daily = pd.DataFrame(
         {
-            "date": prices["date"].to_numpy(),
-            "net_return": prices["net_return"].to_numpy(),
+            "date": returns["date"].to_numpy(),
+            "net_return": returns["next_return"].to_numpy(),
             "turnover": 0.0,
             "gross_exposure": 1.0,
             "net_exposure": 1.0,
         }
     )
 
-    return daily
+    return daily.reset_index(drop=True)
 
 
 def equal_weight_basket(

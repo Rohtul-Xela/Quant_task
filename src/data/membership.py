@@ -15,8 +15,11 @@ URL = (
     "sp_500_historical_components.csv"
 )
 
-RAW_DIR = Path("data/raw/membership")
-PROCESSED_DIR = Path("data/processed")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATA_DIR = PROJECT_ROOT / "src" / "data" / "data"
+
+RAW_DIR = DATA_DIR / "raw" / "membership"
+PROCESSED_DIR = DATA_DIR / "processed"
 
 RAW_FILE = RAW_DIR / "sp500_historical_components.csv"
 SNAPSHOT_FILE = PROCESSED_DIR / "membership_snapshots.parquet"
