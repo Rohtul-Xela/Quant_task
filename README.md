@@ -89,14 +89,18 @@ Each phase is also independently runnable, e.g.
 | 10 | `src/pipeline/run_benchmarks.py` | `results/benchmark_results.csv` (SPY buy-hold, equal-weight basket) |
 | 11 | `src/pipeline/run_cost_sensitivity.py` | `results/cost_sensitivity.csv`, `results/charts/cost_sensitivity.png` |
 | 12 | `src/pipeline/run_robustness.py` | `results/robustness_bootstrap.csv`, `results/param_stability_sma_long_only.csv`, `results/breadth_summary.csv`, charts |
-| 13 | `src/pipeline/build_charts.py` | `results/correlation_matrix.csv`, `results/charts/*.png` |
+| 13 | `src/pipeline/quantify_survivorship_bias.py` | `results/survivorship_bias_quantification.csv` — direction/magnitude of survivorship bias, re-running `combo__sma_rsi__or`'s signal restricted to today's-list-only vs. the full PIT universe |
+| 14 | `src/pipeline/run_param_stability.py` | `results/param_stability_{sma_crossover,macd_crossover,rsi_mean_reversion,bollinger_mean_reversion,mfi_mean_reversion}_dense.csv` + charts — dense 5×5 local grids around each of the 5 positive-Sharpe finalists. By far the slowest added phase (30-45 min) — Bollinger/MFI's per-ticker Python loops, not vectorized |
+| 15 | `src/pipeline/run_ml_pit_percentile_ablation.py` | `results/ml_pit_percentile_ablation.csv` — feature-representation ablation (§5 of the report), not a replacement for `ml_results.csv` |
+| 16 | `src/pipeline/build_charts.py` | `results/correlation_matrix.csv`, `results/charts/*.png` |
 
 **Expected runtime**: phases 1-2 (network-bound Yahoo download) dominate
 the data-foundation cost and carry real rate-limit risk on a from-scratch
 run. Within the research build, phase 7 (walk-forward, 8 strategy lines ×
-14 rolling windows) and phase 9 (ML, 2 models × 14 purged/embargoed folds
-over ~1M+ row training sets) are the dominant cost there — budget roughly
-45-75 minutes for phases 6-13 alone once the data foundation exists.
+14 rolling windows), phase 9 (ML, 2 models × 14 purged/embargoed folds
+over ~1M+ row training sets), and phase 14 (dense parameter-stability
+grids, 30-45 minutes alone) are the dominant costs — budget roughly
+80-120 minutes for phases 6-16 alone once the data foundation exists.
 
 ## Column glossary (results/walkforward_results.csv and results/ml_results.csv)
 

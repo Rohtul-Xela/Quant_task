@@ -376,8 +376,15 @@ would have overstated the edge by roughly 10% of the Sharpe itself.
 `python run_all.py` reproduces every number in this report from a genuinely
 clean clone — no manual setup required, including the data foundation
 (membership reconstruction, price download, PIT dataset, features, in-sample
-sweep). Budget well over an hour for the network-bound data download alone;
-`python run_all.py --skip-data` re-runs only the research build if that
+sweep) and the three gap-closing analyses cited above and in §9 (survivorship
+bias, dense parameter-stability grids, the ML feature-representation
+ablation) — all 16 phases, not just the original 13. These three were
+previously left out of `run_all.py` entirely despite being cited as specific
+numbers in this report, which meant the "reproduces every number" claim
+wasn't actually true; fixed during review. Budget well over an hour for the
+network-bound data download, plus another 30-45 minutes for the dense
+parameter-stability grids alone (Bollinger/MFI's per-ticker Python loops).
+`python run_all.py --skip-data` re-runs only the research build if the data
 foundation already exists on disk. See `README.md` for the full phase table
 and column glossary.
 

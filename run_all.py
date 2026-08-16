@@ -9,17 +9,26 @@ one's output files.
 
 Phases 1-5 are the PIT data/backtest foundation (network-bound: ~650+
 tickers from Yahoo Finance, rate-limit risk; budget well over an hour).
-Phases 6-13 are the walk-forward/ML/benchmark build. On a genuinely
-clean clone, `python run_all.py` with no flags runs all 13 phases and
-needs nothing done by hand first, EXCEPT
+Phases 6-16 are the walk-forward/ML/benchmark build, including three
+gap-closing analyses (survivorship bias, dense parameter-stability
+grids, an ML feature-representation ablation) that are cited as
+specific numbers in reports/report.md but were previously left out of
+this file entirely — every number in the report needs to come from
+running this one script, not from separately-remembered manual
+commands. On a genuinely clean clone, `python run_all.py` with no
+flags runs all 16 phases and needs nothing done by hand first, EXCEPT
 `src/data/data/processed/security_mapping.csv` (hand-verified
 renamed/delisted ticker mappings, committed to git — not regenerable by
 any script, see `src/data/security_mapping.py`, so it can't be a phase
 here).
 
+Phase 14 (dense parameter-stability grids) is by far the slowest of
+the three added phases — the Bollinger/MFI dense grids use per-ticker
+Python loops, not vectorized, and can take 30-45 minutes on their own.
+
 Usage:
-    python run_all.py                  # everything, phases 1-13
-    python run_all.py --skip-data       # phases 6-13 only, if the data
+    python run_all.py                  # everything, phases 1-16
+    python run_all.py --skip-data       # phases 6-16 only, if the data
                                          # foundation (phases 1-5's
                                          # output) already exists on disk
     python run_all.py --only run_benchmarks,run_cost_sensitivity
@@ -51,7 +60,10 @@ PHASES = [
     ("Phase 10: benchmarks", "src.pipeline.run_benchmarks", False),
     ("Phase 11: cost sensitivity", "src.pipeline.run_cost_sensitivity", False),
     ("Phase 12: robustness", "src.pipeline.run_robustness", False),
-    ("Phase 13: charts + correlation matrix", "src.pipeline.build_charts", False),
+    ("Phase 13: survivorship bias", "src.pipeline.quantify_survivorship_bias", False),
+    ("Phase 14: dense parameter-stability grids", "src.pipeline.run_param_stability", False),
+    ("Phase 15: ML PIT-percentile ablation", "src.pipeline.run_ml_pit_percentile_ablation", False),
+    ("Phase 16: charts + correlation matrix", "src.pipeline.build_charts", False),
 ]
 
 
